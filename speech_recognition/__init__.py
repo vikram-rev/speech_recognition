@@ -1391,6 +1391,58 @@ class Recognizer(AudioSource):
                 human_string = self.tflabels[node_id]
                 return human_string
 
+    def recognize_rev_ai(self, audio_data, key=None, language="en"):
+        """
+        Performs speech recognition on ``audio_data`` (an ``AudioData`` instance), using the Rev.ai Streaming API.
+
+        This function requires a Rev.ai account.
+
+        [todo] add more description
+
+        Raises a ``speech_recognition.UnknownValueError`` exception if the speech is unintelligible. Raises a ``speech_recognition.RequestError`` exception if the speech recognition operation failed, if the credentials aren't valid, or if there is no Internet connection.
+        """
+        assert isinstance(audio_data, AudioData), "``audio_data`` must be audio data"
+        assert key is None or isinstance(key, str), "``key`` must be ``None`` or a string"
+        assert isinstance(language, str), "``language`` must be a string"
+
+        try:
+            from rev_ai.models import MediaConfig
+            from rev_ai.streamingclient import RevAiStreamingClient
+        except ImportError:
+            raise RequestError('missing rev_ai module')
+
+        config = MediaConfig('audio/x-raw', 'interleaved', 16000, 'S16LE', 1)
+
+        raw_data = audio_data.get_raw_data(
+            convert_rate=16000
+        )
+
+        """
+        flac_data = audio_data.get_flac_data(
+            convert_rate=None if audio_data.sample_rate >= 8000 else 8000,  # audio samples should be at least 8 kHz
+            convert_width=None if audio_data.sample_width >= 2 else 2  # audio samples should be at least 16-bit
+        )
+        """
+
+        if key is not None:
+            streamclient = RevAiStreamingClient(key, config)
+
+        try:
+            with io.open(raw_data, 'rb') as stream:
+                media_generator = [stream.read()]
+            response_generator = streamclient.start(media_generator)
+            for response in response_generator:
+                print(response)
+
+        except URLError as e:
+            raise RequestError("recognition connection failed: {0}".format(e.reason))
+
+        """
+        transcript = ''
+        for response in response_generator:
+            transcript += response + ' '
+        return transcript
+        """
 
 def get_flac_converter():
     """Returns the absolute path of a FLAC converter executable, or raises an OSError if none can be found."""
