@@ -1391,19 +1391,20 @@ class Recognizer(AudioSource):
                 human_string = self.tflabels[node_id]
                 return human_string
 
-    def recognize_rev_ai(self, audio_data, key=None, language="en"):
+    def recognize_rev_ai(self, audio_data, access_token=None, show_all=False):
         """
         Performs speech recognition on ``audio_data`` (an ``AudioData`` instance), using the Rev.ai Streaming API.
 
-        This function requires a Rev.ai account.
+        This function requires a Rev.ai account and ``access_token``. You can sign up for a Rev.ai account at <https://www.rev.ai/auth/signup>. Once your account is registered, the ``access_token`` can be obtained from your Rev.ai dashboard at <https://rev.ai/access_token>.
 
-        [todo] add more description
+        This function uses the Rev.ai Streaming Speech-to-Text API, which is documented at <https://www.rev.ai/docs/streaming>.
+
+        Returns the most likely transcription if ``show_all`` is false (the default). Otherwise, returns the raw API response as a list.
 
         Raises a ``speech_recognition.UnknownValueError`` exception if the speech is unintelligible. Raises a ``speech_recognition.RequestError`` exception if the speech recognition operation failed, if the credentials aren't valid, or if there is no Internet connection.
         """
         assert isinstance(audio_data, AudioData), "``audio_data`` must be audio data"
-        assert key is None or isinstance(key, str), "``key`` must be ``None`` or a string"
-        assert isinstance(language, str), "``language`` must be a string"
+        assert access_token is None or isinstance(access_token, str), "``access_token`` must be ``None`` or a string"
 
         try:
             from rev_ai.models import MediaConfig
@@ -1417,32 +1418,26 @@ class Recognizer(AudioSource):
             convert_rate=16000
         )
 
-        """
-        flac_data = audio_data.get_flac_data(
-            convert_rate=None if audio_data.sample_rate >= 8000 else 8000,  # audio samples should be at least 8 kHz
-            convert_width=None if audio_data.sample_width >= 2 else 2  # audio samples should be at least 16-bit
-        )
-        """
-
-        if key is not None:
-            streamclient = RevAiStreamingClient(key, config)
+        if access_token is not None:
+            streamclient = RevAiStreamingClient(access_token, config)
 
         try:
-            with io.open(raw_data, 'rb') as stream:
-                media_generator = [stream.read()]
-            response_generator = streamclient.start(media_generator)
+            hypotheses = []
+            response_generator = streamclient.start([raw_data])
             for response in response_generator:
-                print(response)
-
+              result = json.loads(response)
+              hypotheses.append(result)
+              transcript = ''
+              if "type" not in result or result["type"] is None: raise UnknownValueError()
+              if result["type"] == 'final':
+                for i in result["elements"]:
+                  transcript += i['value']
+            if show_all: 
+              return hypotheses
+            else:
+              return transcript
         except URLError as e:
-            raise RequestError("recognition connection failed: {0}".format(e.reason))
-
-        """
-        transcript = ''
-        for response in response_generator:
-            transcript += response + ' '
-        return transcript
-        """
+            raise RequestError("Connection failed: {0}".format(e.reason))
 
 def get_flac_converter():
     """Returns the absolute path of a FLAC converter executable, or raises an OSError if none can be found."""
