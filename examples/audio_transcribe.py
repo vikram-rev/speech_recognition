@@ -87,3 +87,12 @@ except sr.UnknownValueError:
     print("IBM Speech to Text could not understand audio")
 except sr.RequestError as e:
     print("Could not request results from IBM Speech to Text service; {0}".format(e))
+
+# recognize speech using Rev.ai
+REVAI_ACCESS_TOKEN = "INSERT REV.AI ACCESS TOKEN HERE"
+try:
+    print("Rev.ai thinks you said " + r.recognize_rev_ai(audio, access_token=REVAI_ACCESS_TOKEN))
+except sr.UnknownValueError:
+    print("Rev.ai could not understand audio")
+except sr.RequestError as e:
+    print("Could not request results from Rev.ai; {0}".format(e))

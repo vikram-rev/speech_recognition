@@ -1423,11 +1423,11 @@ class Recognizer(AudioSource):
 
         try:
             hypotheses = []
+            transcript = ''
             response_generator = streamclient.start([raw_data])
             for response in response_generator:
               result = json.loads(response)
               hypotheses.append(result)
-              transcript = ''
               if "type" not in result or result["type"] is None: raise UnknownValueError()
               if result["type"] == 'final':
                 for i in result["elements"]:
